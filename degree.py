@@ -14,22 +14,41 @@ sqlContext = SQLContext(sc)
 def simple(g):
     ''' return the simple closure of the graph as a graphframe.'''
     # Extract edges and make a data frame of "flipped" edges
-    e = g.edges.map(lambda k: (k[0], k[1]))
-    r = e.map(lambda k: (k[1], k[0]))
+    # YOUR CODE HERE
+
+    # get the edges
+    edges = g.edges.map(lambda itr: (itr[0], itr[1]))
+    #flip it
+    flipped = edges.map(lambda itr: (itr[1], itr[0]))
+
     # Combine old and new edges. Distinctify to eliminate multi-edges
     # Filter to eliminate self-loops.
     # A multigraph with loops will be closured to a simple graph
     # If we try to undirect an undirected graph, no harm done
-    e = e.union(r).distinct().filter(lambda k: k[0] != k[1])
-    e = sqlContext.createDataFrame(e, ['src', 'dst'])
-    return GraphFrame(g.vertices, e)
+    # YOUR CODE HERE
+
+    # combine edges	
+    edges = edges.union(flipped)
+    # get rid of multi-edges
+    edges = edges.distinct()
+    # eliminate self loop
+    edges = edges.filter(lambda itr: itr[0] != itr[1])
+    # create graph and return
+    edges = sqlContext.createDataFrame(edges, ['src', 'dst'])
+    return GraphFrame(g.vertices, edges)
 
 
 def degreedist(g):
     ''' Return a data frame of the degree distribution of each edge in
         the provided graphframe '''
     # Generate a DF with degree,count
-    return g.edges.groupBy('src').count().withColumnRenamed('count', 'degree').drop('src').groupBy('degree').count().sort('degree')
+    # YOUR CODE HERE
+    
+    # group by source and count
+    edges = g.edges.groupBy('src')
+    edges = edges.count().withColumnRenamed('count', 'degree')
+    edges.drop('src')
+    return edges.groupBy('degree').count()
 
 
 def readFile(filename, large, sqlContext=sqlContext):
