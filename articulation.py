@@ -35,17 +35,29 @@ def articulations(g, usegraphframe=False):
             sub_gf = GraphFrame(sub_vertices, sub_edges)
             curr_count = new_gf.connectedComponents().select('component').distinct().count()
             if curr_count>count:
-                output.append((vertex,1))
+                results.append((vertex,1))
             else:
-                output.append((vertex,0))
+                results.append((vertex,0))
         return sqlContext.createDataFrame(sc.parallelize(results),['id', 'articulation'])
 
     # Non-default version sparkifies node iteration and uses networkx
     # for connected components count.
     else:
+	results = []
 	graph = nx.Graph()
-	graph.add_edges_from(g.edges.map(lambda edge: (edge.src, edge.dst)).collect())
-  	graph.add_nodes_from(g.vertices.map(lambda vertex: vertex.id).collect())
+	vertices = g.vertices.map(lambda vertex: vertex.id).collect()
+	edges = g.edges.map(lambda edge: (edge.src, edge.dst)).collect()
+	graph.add_edges_from(edges)
+  	graph.add_nodes_from(vertices)
+        for vertex in vertices:
+            curr_graph = graph.copy()
+            curr_graph.remove_node(vertex)
+            curr_count = nx.number_connected_components(curr_graph)
+            if curr_count>count:
+                results.append((vertex,1))
+            else:
+                results.append((vertex,0))
+        return sqlContext.createDataFrame(sc.parallelize(results),['id','articulation'])
 
 filename = sys.argv[1]
 lines = sc.textFile(filename)
