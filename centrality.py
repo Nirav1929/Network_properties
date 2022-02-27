@@ -11,16 +11,17 @@ sqlContext = SQLContext(sc)
 def closeness(g):
     # Get list of vertices. We'll generate all the shortest paths at
     # once using this list.
-    vertices = g.vertices.map(lambda k: k[0]).collect()
+    # YOUR CODE HERE
+
+    vertices = g.vertices.map(lambda itr: itr[0]).collect()
     # first get all the path lengths.
-    lengths = g.shortestPaths(landmarks=vertices)
+    path_len = g.shortestPaths(landmarks=vertices)
     # Break up the map and group by ID for summing
-    groups = lengths.select(explode('distances').alias('id', 'distance')).groupBy('id')
+    ids = path_len.select(explode('distances').alias('id', 'distance')).groupBy('id')
     # Sum by ID
-    sums = groups.sum('distance').withColumnRenamed('sum(distance)', 'distance')
+    sum_by_id = ids.sum('distance').withColumnRenamed('sum(distance)', 'distance')
     # Get the inverses and generate desired dataframe.
-    # inverse = UserDefinedFunction(lambda x: 1 / x, FloatType())
-    inverses = sums.select(sums.id, pow(sums.distance, lit(-1)).alias('closeness'))
+    inverses = sum_by_id.select(sum_by_id.id, pow(sum_by_id.distance, lit(-1)).alias('closeness'))
     return inverses
 
 

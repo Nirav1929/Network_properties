@@ -15,36 +15,37 @@ sqlContext = SQLContext(sc)
 
 def articulations(g, usegraphframe=False):
     # Get the starting count of connected components
-    # og_components = g.connectedComponents().select('component').distinct().count()
-    edges = g.edges.map(lambda k: (k.src, k.dst)).collect()
-    vertices = g.vertices.map(lambda k: k.id).collect()
-    nx_graph = nx.Graph()
-    nx_graph.add_edges_from(edges)
-    og_components = number_connected_components(nx_graph)
+    # YOUR CODE HERE
+
+    count = g.connectedComponents().select('component').distinct().count()
+
     # Default version sparkifies the connected components process
     # and serializes node iteration.
     if usegraphframe:
+
         # Get vertex list for serial iteration
+        vertices = g.vertices.map(lambda itr: itr.id).collect()
         # For each vertex, generate a new graphframe missing that vertex
         # and calculate connected component count. Then append count to
         # the output
         results = []
-        for i, v in enumerate(vertices):
-            sub_v = g.vertices.filter("id != '{}'".format(v))
-            sub_e = g.edges.filter("src != '{}'".format(v)).filter("dst != '{}'".format(v))
-            sub_g = GraphFrame(sub_v, sub_e)
-            sub_components = sub_g.connectedComponents().select('component').distinct().count()
-            results.append((v, 1) if sub_components > og_components else (v, 0))
-        return sqlContext.createDataFrame(sc.parallelize(results), ['id', 'articulation'])
+        for vertex in vertices:
+            sub_edges = g.edges.filter("src!='" + vertex + "'").filter("dst!='" + vertex + "'")
+            sub_vertices = g.vertices.filter("id!='" + vertex + "'")
+            sub_gf = GraphFrame(sub_vertices, sub_edges)
+            curr_count = new_gf.connectedComponents().select('component').distinct().count()
+            if curr_count>count:
+                output.append((vertex,1))
+            else:
+                output.append((vertex,0))
+        return sqlContext.createDataFrame(sc.parallelize(results),['id', 'articulation'])
 
     # Non-default version sparkifies node iteration and uses networkx
     # for connected components count.
     else:
-        return sqlContext.createDataFrame(g.vertices.map(lambda k: k.id)
-                                                    .map(lambda k: (k, number_connected_components(subgraph(nx_graph, [x for x in vertices if x != k]))))
-                                                    .map(lambda k: (k[0], 1) if k[1] > og_components else (k[0], 0)),
-                                          ['id', 'articulation'])
-
+	graph = nx.Graph()
+	graph.add_edges_from(g.edges.map(lambda edge: (edge.src, edge.dst)).collect())
+  	graph.add_nodes_from(g.vertices.map(lambda vertex: vertex.id).collect())
 
 filename = sys.argv[1]
 lines = sc.textFile(filename)
